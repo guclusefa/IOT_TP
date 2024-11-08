@@ -1,0 +1,81 @@
+#include <Arduino.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
+
+const char* ssid = "Pixel_5918";               // Your Wi-Fi SSID
+const char* password = "12345678";       // Your Wi-Fi Password
+const char* mqtt_server = "192.168.29.212"; // Raspberry Pi IP address running MQTT broker
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+void reconnect();
+
+int VRxPin = 34;  // Analog input pin for X-axis
+int VRyPin = 35;  // Analog input pin for Y-axis
+
+void setup() {
+  Serial.begin(115200);
+
+  // Connect to Wi-Fi
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\nConnected to WiFi");
+
+  client.setServer(mqtt_server, 1883);  // Set MQTT server and port
+  reconnect();
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    if (client.connect("ESP32Client")) {
+      Serial.println("connected");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
+void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+  int xValue = analogRead(VRxPin) - 3100;
+  int yValue = analogRead(VRyPin) - 3100;
+
+  String direction = "";
+
+  if (xValue < -100) {
+    direction += "Left";
+  } else if (xValue > 100) {
+    direction += "Right";
+  } else {
+    direction += "Center X";
+  }
+
+  if (yValue < -100) {
+    direction += " Up";
+  } else if (yValue > 100) {
+    direction += " Down";
+  } else {
+    direction += " Center Y";
+  }
+
+  // Construct a JSON payload
+  String payload = "{ \"x\": " + String(xValue) + ", \"y\": " + String(yValue) + ", \"direction\": \"" + direction + "\" }";
+
+  Serial.println("Publishing payload: " + payload);
+  
+  client.publish("joystick/data", payload.c_str());
+  
+  delay(100); // Delay for readability
+}

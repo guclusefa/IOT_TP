@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Joystick Direction Display</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f3f4f6;
+    }
+    #joystick-data {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+    #play-area {
+      width: 300px;
+      height: 300px;
+      border: 2px solid #333;
+      position: relative;
+      background-color: #e0e0e0;
+    }
+    #square {
+      width: 50px;
+      height: 50px;
+      background-color: #007bff;
+      position: absolute;
+      top: 125px;
+      left: 125px;
+      transition: top 0.1s, left 0.1s;
+    }
+  </style>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <div id="joystick-data">Direction: </div>
+  <div id="play-area">
+    <div id="square"></div>
+  </div>
+
+  <script>
+    const client = mqtt.connect('ws://192.168.29.212:9001'); // Update with your MQTT broker address
+    const square = document.getElementById('square');
+    const joystickData = document.getElementById('joystick-data');
+    let xPos = 125;
+    let yPos = 125;
+
+    client.on('connect', () => {
+      console.log("Connected to MQTT broker");
+      client.subscribe('joystick/data');
+    });
+
+    client.on('message', (topic, message) => {
+      if (topic === 'joystick/data') {
+        const data = JSON.parse(message.toString());
+        const directionX = data.directionX;
+        const directionY = data.directionY;
+        
+        // Update displayed direction
+        joystickData.textContent = `Direction: ${directionX} ${directionY}`;
+        
+        // Adjust square position based on joystick direction
+        if (directionX === "Left") xPos = Math.max(xPos - 10, 0);
+        if (directionX === "Right") xPos = Math.min(xPos + 10, 250);
+        if (directionY.includes("Up")) yPos = Math.max(yPos - 10, 0);
+        if (directionY.includes("Down")) yPos = Math.min(yPos + 10, 250);
+
+        // Update square position
+        square.style.left = `${xPos}px`;
+        square.style.top = `${yPos}px`;
+      }
+    });
+  </script>
+</body>
+</html>
